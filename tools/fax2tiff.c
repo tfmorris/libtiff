@@ -73,8 +73,7 @@ int	copyFaxFile(TIFF* tifin, TIFF* tifout);
 static	void usage(void);
 
 /*
-  Struct to carry client data.  Note that it does not appear that the client
-  data is actually used in this program.
+  Struct to carry client data.
 */
 typedef struct _FAX_Client_Data
 {
@@ -233,7 +232,7 @@ main(int argc, char* argv[])
 	rowbuf = _TIFFmalloc(TIFFhowmany8(xsize));
 	refbuf = _TIFFmalloc(TIFFhowmany8(xsize));
 	if (rowbuf == NULL || refbuf == NULL) {
-		fprintf(stderr, "%s: Not enough memory\n", argv[0]);
+		fprintf(stderr, "%s: Not enough memory for row/ref buffers", argv[0]);
 		return (EXIT_FAILURE);
 	}
 
@@ -247,7 +246,7 @@ main(int argc, char* argv[])
 	}
 		
 	faxTIFF = TIFFClientOpen("(FakeInput)", "w",
-	/* TIFFClientOpen() fails if we don't set existing value here */
+	/* TIFFClientOpen() fails if we don't set existing value here - reuse output procs */
 				 TIFFClientdata(out),
 				 TIFFGetReadProc(out), TIFFGetWriteProc(out),
 				 TIFFGetSeekProc(out), TIFFGetCloseProc(out),
@@ -283,10 +282,11 @@ main(int argc, char* argv[])
 		}
 #if defined(_WIN32) && defined(USE_WIN32_FILEIO)
                 client_data.fh = _get_osfhandle(fileno(in));
+		TIFFSetClientdata(faxTIFF, (thandle_t) &client_data);
 #else
                 client_data.fd = fileno(in);
+		TIFFSetClientdata(faxTIFF, (thandle_t) client_data.fd);
 #endif
-                TIFFSetClientdata(faxTIFF, (thandle_t) &client_data);
 		TIFFSetFileName(faxTIFF, (const char*)argv[optind]);
 		TIFFSetField(out, TIFFTAG_IMAGEWIDTH, xsize);
 		TIFFSetField(out, TIFFTAG_BITSPERSAMPLE, 1);
@@ -372,7 +372,7 @@ copyFaxFile(TIFF* tifin, TIFF* tifout)
 	tifin->tif_rawdatasize = (tmsize_t)TIFFGetFileSize(tifin);
 	tifin->tif_rawdata = _TIFFmalloc(tifin->tif_rawdatasize);
 	if (tifin->tif_rawdata == NULL) {
-		TIFFError(tifin->tif_name, "Not enough memory");
+		TIFFError(tifin->tif_name, "Not enough memory for raw data");
 		return (0);
 	}
 	if (!ReadOK(tifin, tifin->tif_rawdata, tifin->tif_rawdatasize)) {
